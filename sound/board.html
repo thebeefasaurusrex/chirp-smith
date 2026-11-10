@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChirpSmith</title>
+  <link rel="stylesheet" href="/board.css">
+  <script type="module" src="/board-ui.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="folder" id="folder">Local audition</p>
+      <h1>ChirpSmith</h1>
+      <p>Play each take, then keep it or mark it for a redo.</p>
+    </header>
+    <p id="status" role="status">Loading sounds…</p>
+    <section id="sounds" aria-label="Sounds"></section>
+  </main>
+  <template id="sound-row">
+    <article class="sound">
+      <div class="sample">
+        <h2></h2>
+        <audio controls preload="none"></audio>
+        <div class="buttons">
+          <button type="button" data-decision="keep" aria-pressed="false">Keep</button>
+          <button type="button" data-decision="redo" aria-pressed="false">Redo</button>
+        </div>
+      </div>
+      <label>Note
+        <textarea rows="2" maxlength="2000" placeholder="What should change?"></textarea>
+      </label>
+    </article>
+  </template>
+</body>
+</html>

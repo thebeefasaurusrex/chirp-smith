@@ -1,0 +1,31 @@
+{
+  "sounds": [
+    {
+      "id": "ui-confirm",
+      "engine": "zzfx",
+      "preset": "bell",
+      "params": {
+        "frequency": 523.25,
+        "release": 0.22,
+        "decay": 0.06
+      },
+      "seed": "confirm",
+      "variants": 3,
+      "gain": 0.55,
+      "target_lufs": -23
+    },
+    {
+      "id": "energy-pickup",
+      "engine": "jsfxr",
+      "preset": "pickupCoin",
+      "params": {
+        "p_env_sustain": 0.22,
+        "p_env_decay": 0.22
+      },
+      "seed": "pickup",
+      "variants": 2,
+      "gain": 0.45,
+      "target_lufs": -23
+    }
+  ]
+}

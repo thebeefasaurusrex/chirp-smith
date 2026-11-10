@@ -1,0 +1,5 @@
+node_modules/
+.gt/
+examples/out/
+examples/sounds.lock.json
+examples/choices.json

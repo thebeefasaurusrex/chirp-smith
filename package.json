@@ -1,0 +1,28 @@
+{
+  "name": "chirp-smith",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generate, check, and audition reproducible game sound effects.",
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "bin": {
+    "chirp-smith": "bin/chirp-smith.mjs"
+  },
+  "files": [
+    "bin/",
+    "sound/",
+    "examples/sounds.json",
+    "THIRD-PARTY.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "jsfxr": "1.4.1",
+    "seedrandom": "3.0.5",
+    "zzfx": "1.4.0"
+  },
+  "license": "Apache-2.0"
+}
