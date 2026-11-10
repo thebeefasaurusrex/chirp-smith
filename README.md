@@ -23,6 +23,8 @@ node bin/chirp-smith.mjs board examples
 
 Open the printed loopback URL in a browser. Mark each variant Keep or Redo, add a note, then press Ctrl+C in the terminal to stop the board. Choices are saved to `examples/choices.json`. On Windows, add `--open` to open the URL automatically.
 
+The workbench draws a waveform and 3D spectral terrain from the selected WAV. Play a take to see its position sweep across the terrain, or click, drag, or use the keyboard on the waveform to seek. The take rack keeps a running count of unreviewed, kept, and redo takes. Fonts and graphics are served locally. The terrain has a Canvas2D fallback when WebGL2 is unavailable, and the waveform works on its own when neither canvas renderer is available. Add `?fps` to the board URL to see the frame-rate readout.
+
 ### Label an audition
 
 Pass the game title, build or revision, and the source chat or task title when you have them.
@@ -40,7 +42,7 @@ Labels are plain text in the lock file and on the local board. Leave `--task` ou
 
 `lint` accepts a folder or a list of WAV paths. When you lint a folder with a lock file, ChirpSmith checks the recipe and WAV hashes before measuring. Add `--full` to see every result. The measurements cover loudness, true peak, clipping, duration, leading and trailing silence, and DC offset. JSON evidence and FFmpeg logs go under the target folder's `.gt/sfx/` directory and can include local paths.
 
-Run `npm test` to verify reproducible WAV output, lint failures, and audition choices across a board restart. See [third-party components](THIRD-PARTY.md) for dependency licenses.
+Run `npm test` to verify reproducible WAV output, lint failures, audition choices across a board restart, and spectral analysis of stereo audio. See [third-party components](THIRD-PARTY.md) for package and font licenses.
 
 ## License
 

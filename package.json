@@ -1,6 +1,6 @@
 {
   "name": "chirp-smith",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Generate, check, and audition reproducible game sound effects.",
   "type": "module",

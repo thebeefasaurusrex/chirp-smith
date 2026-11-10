@@ -9,31 +9,91 @@
   <script type="module" src="/board-ui.js"></script>
 </head>
 <body>
-  <main>
-    <header>
-      <p class="eyebrow">ChirpSmith · Local audition</p>
-      <h1 id="game">Loading board…</h1>
-      <p class="revision" id="revision" hidden></p>
-      <p id="task" hidden></p>
-      <p class="board-detail" id="board-detail" hidden></p>
-      <p>Play each take, then keep it or mark it for a redo.</p>
+  <main class="workbench">
+    <header class="masthead">
+      <div class="brand">
+        <img src="/favicon.svg" alt="" width="36" height="36">
+        <span>CHIRPSMITH</span>
+      </div>
+      <span class="mast-label">Game audio workbench <small>FIELD INSTRUMENT / 01</small></span>
+      <span class="local"><i></i> Local session</span>
     </header>
-    <p id="status" role="status">Loading sounds…</p>
-    <section id="sounds" aria-label="Sounds"></section>
+    <div class="hero">
+      <section class="identity" aria-labelledby="game">
+        <p class="eyebrow"><span>01</span> / Game under test</p>
+        <h1 id="game">Loading board…</h1>
+        <div class="identity-data">
+          <p class="identity-field" id="revision" hidden><span>Game revision</span><strong></strong></p>
+          <p class="identity-field" id="task" hidden><span>Source task</span><strong></strong></p>
+          <p class="identity-field board-detail" id="board-detail" hidden><span>Sound set</span><strong></strong></p>
+        </div>
+      </section>
+      <figure class="scope" aria-label="Audio signal preview">
+        <div class="scope-top"><span><i></i> Signal scope</span><span class="scope-mode"><span id="signal-state">READY</span> / WAV</span></div>
+        <div class="signal-landscape" aria-label="Frequency energy across the selected WAV">
+          <canvas class="terrain" aria-hidden="true"></canvas>
+          <div class="landscape-label"><span>SPECTRAL TERRAIN</span><span id="spectrum-range">80 Hz · 20 kHz</span></div>
+          <div class="landscape-foot"><span>LOW / HIGH</span><span id="signal-format">Reading WAV…</span></div>
+        </div>
+        <div class="scope-screen">
+          <svg viewBox="0 0 600 180" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="signal-fill" x2="0%" y2="100%">
+                <stop stop-color="#77f6e5" stop-opacity=".65"/>
+                <stop offset=".5" stop-color="#77f6e5" stop-opacity=".18"/>
+                <stop offset="1" stop-color="#77f6e5" stop-opacity=".65"/>
+              </linearGradient>
+            </defs>
+            <path class="scope-axis" d="M0 90H600 M300 0V180"/>
+            <path id="wave" d="M0 90H600"/>
+            <line id="playhead" x1="0" x2="0" y1="0" y2="180" visibility="hidden"/>
+          </svg>
+          <span class="scope-zero" aria-hidden="true">0</span>
+          <input id="scope-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek selected take" disabled>
+        </div>
+        <div class="scope-scale" id="scope-scale" aria-hidden="true"><span>0</span><span></span><span></span><span></span><span></span></div>
+        <figcaption><strong id="scope-name">Awaiting a take</strong><span id="scope-time">-- s</span></figcaption>
+      </figure>
+    </div>
+    <section class="rack" aria-labelledby="rack-title">
+      <div class="rack-head">
+        <div>
+          <p class="eyebrow"><span>02</span> / Audition queue</p>
+          <h2 id="rack-title">Take rack</h2>
+          <p>Find the sound that belongs in the game.</p>
+        </div>
+        <div class="review" id="review" hidden>
+          <div class="review-labels">
+            <span><b id="remaining">0</b> unreviewed</span>
+            <span><b id="kept">0</b> kept</span>
+            <span><b id="redos">0</b> redo</span>
+          </div>
+          <div id="review-track" class="review-track" aria-hidden="true"><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <p id="status" role="status">Loading sounds…</p>
+      <div id="sounds"></div>
+    </section>
+    <footer><span>CHIRPSMITH / AUDIO WORKBENCH</span><span>Choices stay in this sound folder.</span></footer>
   </main>
   <template id="sound-row">
     <article class="sound">
-      <div class="sample">
-        <h2></h2>
-        <audio controls preload="none"></audio>
-        <div class="buttons">
-          <button type="button" data-decision="keep" aria-pressed="false">Keep</button>
-          <button type="button" data-decision="redo" aria-pressed="false">Redo</button>
-        </div>
+      <div class="take-id">
+        <span class="take-number"></span>
+        <span class="take-on-scope" hidden>On scope</span>
+        <span class="take-state">Unreviewed</span>
       </div>
-      <label>Note
-        <textarea rows="2" maxlength="2000" placeholder="What should change?"></textarea>
-      </label>
+      <div class="take-title"><h3></h3><span class="take-length"></span></div>
+      <div class="transport"><audio controls preload="none"></audio></div>
+      <div class="take-review">
+        <div class="buttons">
+          <button type="button" data-decision="keep" aria-pressed="false"><span aria-hidden="true">✓</span> Keep</button>
+          <button type="button" data-decision="redo" aria-pressed="false"><span aria-hidden="true">↻</span> Redo</button>
+        </div>
+        <label>Take notes
+          <textarea rows="2" maxlength="2000" placeholder="What should change?"></textarea>
+        </label>
+      </div>
     </article>
   </template>
 </body>

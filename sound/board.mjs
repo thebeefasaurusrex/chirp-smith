@@ -5,10 +5,17 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 import { auditionContext, evidence, fileSha, findSounds, json, sha, writeJson } from './files.mjs';
 
-const html = readFileSync(new URL('./board.html', import.meta.url));
-const script = readFileSync(new URL('./board-ui.js', import.meta.url));
-const styles = readFileSync(new URL('./board.css', import.meta.url));
-const icon = readFileSync(new URL('./favicon.svg', import.meta.url));
+const assets = new Map([
+  ['/', 'board.html', 'text/html; charset=utf-8'],
+  ['/board-ui.js', 'board-ui.js', 'text/javascript; charset=utf-8'],
+  ['/board.css', 'board.css', 'text/css; charset=utf-8'],
+  ['/scope.js', 'scope.js', 'text/javascript; charset=utf-8'],
+  ['/terrain.js', 'terrain.js', 'text/javascript; charset=utf-8'],
+  ['/fps-chip.js', 'fps-chip.js', 'text/javascript; charset=utf-8'],
+  ['/favicon.svg', 'favicon.svg', 'image/svg+xml'],
+  ['/fonts/saira-stencil-one-latin.woff2', 'fonts/saira-stencil-one-latin.woff2', 'font/woff2'],
+  ['/fonts/chakra-petch-600-latin.woff2', 'fonts/chakra-petch-600-latin.woff2', 'font/woff2'],
+].map(([route, file, type]) => [route, { type, bytes: readFileSync(new URL('./' + file, import.meta.url)) }]));
 const sendJson = (response, status, body) => {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   response.end(JSON.stringify(body));
@@ -59,17 +66,9 @@ export async function startBoard(root, files, labels) {
     try {
       const host = '127.0.0.1:' + server.address().port;
       if (request.headers.host !== host) return sendJson(response, 403, { error: 'Use the local board URL' });
-      if (request.method === 'GET' && request.url === '/') {
-        return response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(html);
-      }
-      if (request.method === 'GET' && request.url === '/board-ui.js') {
-        return response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' }).end(script);
-      }
-      if (request.method === 'GET' && request.url === '/board.css') {
-        return response.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' }).end(styles);
-      }
-      if (request.method === 'GET' && request.url === '/favicon.svg') {
-        return response.writeHead(200, { 'Content-Type': 'image/svg+xml' }).end(icon);
+      const asset = assets.get(request.url.split('?')[0]);
+      if (request.method === 'GET' && asset) {
+        return response.writeHead(200, { 'Content-Type': asset.type }).end(asset.bytes);
       }
       if (request.method === 'GET' && request.url === '/api/sounds') {
         const choices = readChoices();
