@@ -8,6 +8,7 @@ import { evidence, fileSha, findSounds, json, sha, writeJson } from './files.mjs
 const html = readFileSync(new URL('./board.html', import.meta.url));
 const script = readFileSync(new URL('./board-ui.js', import.meta.url));
 const styles = readFileSync(new URL('./board.css', import.meta.url));
+const icon = readFileSync(new URL('./favicon.svg', import.meta.url));
 const sendJson = (response, status, body) => {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   response.end(JSON.stringify(body));
@@ -63,6 +64,9 @@ export async function startBoard(root, files) {
       }
       if (request.method === 'GET' && request.url === '/board.css') {
         return response.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' }).end(styles);
+      }
+      if (request.method === 'GET' && request.url === '/favicon.svg') {
+        return response.writeHead(200, { 'Content-Type': 'image/svg+xml' }).end(icon);
       }
       if (request.method === 'GET' && request.url === '/api/sounds') {
         const choices = readChoices();

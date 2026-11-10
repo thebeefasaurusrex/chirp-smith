@@ -78,7 +78,14 @@ test('ChirpSmith serves playable WAVs and reloads a choice from disk after resta
   const close = () => new Promise((resolve, reject) => running.server.close((error) => error ? reject(error) : resolve()));
   try {
     const home = await fetch(running.url);
-    assert.match(await home.text(), /<h1>ChirpSmith<\/h1>/);
+    const html = await home.text();
+    assert.match(html, /<h1>ChirpSmith<\/h1>/);
+    const iconPath = html.match(/<link rel="icon" href="([^"]+)"/)?.[1];
+    assert.ok(iconPath);
+    const icon = await fetch(running.url + iconPath);
+    assert.equal(icon.status, 200);
+    assert.equal(icon.headers.get('content-type'), 'image/svg+xml');
+    assert.match(await icon.text(), /^<svg /);
     const { token, sounds: [sound] } = await fetch(running.url + '/api/sounds').then((response) => response.json());
     assert.equal(sound.choice, null);
     const sample = await fetch(running.url + sound.url, { headers: { Range: 'bytes=0-3' } });
