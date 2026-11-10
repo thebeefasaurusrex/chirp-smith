@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import path from 'node:path';
-import { evidence, fileSha, findSounds, json, sha, writeJson } from './files.mjs';
+import { auditionContext, evidence, fileSha, findSounds, json, sha, writeJson } from './files.mjs';
 
 const html = readFileSync(new URL('./board.html', import.meta.url));
 const script = readFileSync(new URL('./board-ui.js', import.meta.url));
@@ -34,12 +34,15 @@ function serveWav(response, request, bytes) {
   response.writeHead(200, { 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Length': total }).end(bytes);
 }
 
-export async function startBoard(root, files) {
+export async function startBoard(root, files, labels) {
   const token = randomUUID();
   const choicesFile = path.join(root, 'choices.json');
   const sounds = files.map((file) => ({
     file, id: path.relative(root, file).split(path.sep).join('/'), sha256: fileSha(file),
   }));
+  const folder = path.basename(root);
+  const context = auditionContext(root, labels);
+  const set = sha(JSON.stringify(sounds.map(({ id, sha256 }) => [id, sha256]))).slice(0, 10);
   const known = new Map(sounds.map((sound) => [sound.id, sound]));
   const readChoices = () => {
     if (!existsSync(choicesFile)) return {};
@@ -71,7 +74,7 @@ export async function startBoard(root, files) {
       if (request.method === 'GET' && request.url === '/api/sounds') {
         const choices = readChoices();
         return sendJson(response, 200, {
-          token, folder: path.basename(root),
+          token, folder, context: { ...context, game: context.game ?? folder, set },
           sounds: sounds.map(({ id, sha256 }, index) => ({
             id, url: '/wav/' + index, choice: choices[id]?.sha256 === sha256 ? choices[id] : null,
           })),
@@ -123,7 +126,7 @@ export async function startBoard(root, files) {
   return { server, url: 'http://127.0.0.1:' + server.address().port, choicesFile };
 }
 
-export async function board(input, open, args, start) {
+export async function board(input, open, args, start, labels) {
   const root = path.resolve(input);
   const files = findSounds(root, { verifyLock: true });
   if (files === null) {
@@ -133,7 +136,7 @@ export async function board(input, open, args, start) {
   }
   if (!files.length) throw new Error('No WAVs found');
   const stamp = evidence(root, 'board', args, { node: process.version, path: process.execPath }, files, start);
-  const { url, choicesFile } = await startBoard(root, files);
+  const { url, choicesFile } = await startBoard(root, files, labels);
   console.log('ChirpSmith: ' + url);
   console.log('Choices: ' + choicesFile);
   console.log('Evidence: ' + stamp);

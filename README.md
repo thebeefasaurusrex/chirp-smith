@@ -23,6 +23,19 @@ node bin/chirp-smith.mjs board examples
 
 Open the printed loopback URL in a browser. Mark each variant Keep or Redo, add a note, then press Ctrl+C in the terminal to stop the board. Choices are saved to `examples/choices.json`. On Windows, add `--open` to open the URL automatically.
 
+### Label an audition
+
+Pass the game title, build or revision, and the source chat or task title when you have them.
+
+```sh
+node bin/chirp-smith.mjs make examples/sounds.json --game "Example Game" --revision "Build 12" --task "Impact sound audition"
+node bin/chirp-smith.mjs board examples
+```
+
+The board and browser tab show the game and revision. The board also shows the source task when supplied. `make` stores these labels in `sounds.lock.json`. If omitted, the game name comes from the name in the nearest `gt.json`, the Git repository folder, or the audio folder. The default revision is the Git commit at generation time, if available. For imported WAVs or older sets, `board` accepts the same three flags for that launch. Each board shows a sound-set ID based on the WAV filenames and hashes, so you can tell sets apart even when they share a revision.
+
+Labels are plain text in the lock file and on the local board. Leave `--task` out if the title is private and you plan to share the lock file.
+
 `make` accepts a JSON file containing a `sounds` array. Each sound supplies an `id`, an `engine` (`jsfxr` or `zzfx`), a `preset` or `params`, a `seed`, the number of `variants`, and a `gain`. Add `target_lufs` to normalize with FFmpeg. The command writes 44.1 kHz mono PCM WAVs to `out/` beside the recipe and records their hashes in `sounds.lock.json`.
 
 `lint` accepts a folder or a list of WAV paths. When you lint a folder with a lock file, ChirpSmith checks the recipe and WAV hashes before measuring. Add `--full` to see every result. The measurements cover loudness, true peak, clipping, duration, leading and trailing silence, and DC offset. JSON evidence and FFmpeg logs go under the target folder's `.gt/sfx/` directory and can include local paths.

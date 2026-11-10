@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { parseArgs } from 'node:util';
 import { ffmpegVersion, inspectAudio, render } from './audio.mjs';
-import { evidence, fileSha, findSounds, json, sha, writeAtomic, writeJson } from './files.mjs';
+import { auditionContext, evidence, fileSha, findSounds, json, sha, writeAtomic, writeJson } from './files.mjs';
 import { board } from './board.mjs';
 
 const defaults = {
@@ -32,10 +33,11 @@ function recipeFile(file) {
   return { definition, sounds };
 }
 
-function make(input, args, start) {
+function make(input, args, start, labels) {
   const file = path.resolve(input);
   const root = path.dirname(file);
   const { sounds } = recipeFile(file);
+  const audition = auditionContext(root, labels, { making: true });
   const generated = [];
   for (const sound of [...sounds].sort((a, b) => a.id < b.id ? -1 : 1)) {
     for (let variant = 1; variant <= sound.variants; variant++) {
@@ -53,6 +55,7 @@ function make(input, args, start) {
   writeJson(lock, {
     version: 1, recipe: path.basename(file), recipeSha256: fileSha(file),
     sounds: generated.map(({ relative, bytes }) => ({ file: relative, sha256: sha(bytes) })),
+    ...(Object.values(audition).some(Boolean) ? { audition } : {}),
   });
   const engine = {
     node: process.version, path: process.execPath, jsfxr: '1.4.1', zzfx: '1.4.0', seedrandom: '3.0.5',
@@ -127,15 +130,28 @@ function lint(inputs, args, full, start) {
 export async function sfx(args) {
   const start = Date.now();
   const [command, ...rest] = args;
+  if (command === 'make' || command === 'board') {
+    const options = {
+      game: { type: 'string' }, revision: { type: 'string' }, task: { type: 'string' },
+      ...(command === 'board' ? { open: { type: 'boolean' } } : {}),
+    };
+    const { values: { open, ...labels }, positionals } = parseArgs({ args: rest, options, allowPositionals: true });
+    for (const [key, value] of Object.entries(labels)) {
+      labels[key] = value.trim();
+      if (!labels[key]) throw new Error('--' + key + ' needs a nonempty value');
+    }
+    if (positionals.length === 1) {
+      return command === 'make'
+        ? make(positionals[0], args, start, labels)
+        : board(positionals[0], open, args, start, labels);
+    }
+  }
   const inputs = rest.filter((arg) => !arg.startsWith('--'));
   const flags = rest.filter((arg) => arg.startsWith('--'));
-  if (command === 'make' && inputs.length === 1 && flags.length === 0) return make(inputs[0], args, start);
   if (command === 'lint' && inputs.length && flags.every((flag) => flag === '--full')) {
     return lint(inputs, args, flags.includes('--full'), start);
   }
-  if (command === 'board' && inputs.length === 1 && flags.every((flag) => flag === '--open')) {
-    return board(inputs[0], flags.includes('--open'), args, start);
-  }
   console.log('Usage: chirp-smith make <sounds.json> | chirp-smith lint <folder|wav...> [--full] | chirp-smith board <folder> [--open]');
+  console.log('Make and board accept [--game "Game title"] [--revision "Build or revision"] [--task "Source chat or task"]');
   return args.length && !['--help', '-h'].includes(command) ? 2 : 0;
 }

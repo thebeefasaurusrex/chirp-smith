@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { wav } from '../sound/audio.mjs';
 import { startBoard } from '../sound/board.mjs';
+import { findSounds } from '../sound/files.mjs';
 
 const cli = fileURLToPath(new URL('../bin/chirp-smith.mjs', import.meta.url));
 
@@ -27,8 +28,11 @@ function sine(amplitude, lead = 0, tail = 0) {
     index < lead || index >= lead + 26_460 ? 0 : amplitude * Math.sin((index - lead) * Math.PI * 2 * 440 / 44100));
 }
 
-test('ChirpSmith writes identical WAVs and lock bytes across two CLI invocations', (t) => {
-  const directory = workspace(t);
+test('ChirpSmith keeps reproducible WAVs and pins the game, revision and source task', async (t) => {
+  const project = workspace(t);
+  writeFileSync(path.join(project, 'gt.json'), JSON.stringify({ name: 'Example Game' }));
+  const directory = path.join(project, 'audition');
+  mkdirSync(directory);
   const recipe = path.join(directory, 'sounds.json');
   const lock = path.join(directory, 'sounds.lock.json');
   writeFileSync(recipe, JSON.stringify({ sounds: [
@@ -36,7 +40,7 @@ test('ChirpSmith writes identical WAVs and lock bytes across two CLI invocations
     { id: 'tap', engine: 'zzfx', params: { frequency: 245, randomness: .2 }, seed: 4, variants: 2, gain: .4 },
   ] }));
   const make = () => {
-    const result = sfx('make', recipe);
+    const result = sfx('make', recipe, '--revision', 'Build 12', '--task', 'Impact sound audition');
     assert.equal(result.status, 0, result.stderr);
     const bytes = readFileSync(lock);
     const audio = JSON.parse(bytes).sounds.map(({ file }) => readFileSync(path.join(directory, file)));
@@ -46,6 +50,16 @@ test('ChirpSmith writes identical WAVs and lock bytes across two CLI invocations
   assert.notDeepEqual(first.audio[0], first.audio[1]);
   assert.notDeepEqual(first.audio[2], first.audio[3]);
   assert.deepEqual(first, make());
+  const { server, url } = await startBoard(directory, findSounds(directory, { verifyLock: true }));
+  try {
+    const { context } = await fetch(url + '/api/sounds').then((response) => response.json());
+    assert.match(context.set, /^[a-f0-9]{10}$/);
+    assert.deepEqual(context, {
+      game: 'Example Game', revision: 'Build 12', task: 'Impact sound audition', set: context.set,
+    });
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
   const changed = path.join(directory, 'out', 'boom-1.wav');
   writeFileSync(changed, wav(sine(.2)));
   const stale = sfx('lint', directory);
@@ -79,14 +93,17 @@ test('ChirpSmith serves playable WAVs and reloads a choice from disk after resta
   try {
     const home = await fetch(running.url);
     const html = await home.text();
-    assert.match(html, /<h1>ChirpSmith<\/h1>/);
+    assert.match(html, /<h1 id="game">/);
     const iconPath = html.match(/<link rel="icon" href="([^"]+)"/)?.[1];
     assert.ok(iconPath);
     const icon = await fetch(running.url + iconPath);
     assert.equal(icon.status, 200);
     assert.equal(icon.headers.get('content-type'), 'image/svg+xml');
     assert.match(await icon.text(), /^<svg /);
-    const { token, sounds: [sound] } = await fetch(running.url + '/api/sounds').then((response) => response.json());
+    const { token, context, sounds: [sound] } = await fetch(running.url + '/api/sounds').then((response) => response.json());
+    assert.equal(context.game, path.basename(directory));
+    assert.equal(context.revision, undefined);
+    assert.equal(context.task, undefined);
     assert.equal(sound.choice, null);
     const sample = await fetch(running.url + sound.url, { headers: { Range: 'bytes=0-3' } });
     assert.equal(sample.status, 206);
@@ -101,7 +118,8 @@ test('ChirpSmith serves playable WAVs and reloads a choice from disk after resta
     assert.equal(choices['pick.wav'].note, 'Keep the low end 🎵');
     await close();
     running = await open();
-    const { sounds } = await fetch(running.url + '/api/sounds').then((response) => response.json());
+    const { context: reopenedContext, sounds } = await fetch(running.url + '/api/sounds').then((response) => response.json());
+    assert.equal(reopenedContext.set, context.set);
     assert.equal(sounds[0].choice.decision, 'keep');
     assert.equal(sounds[0].choice.note, 'Keep the low end 🎵');
   } finally {

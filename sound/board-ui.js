@@ -4,9 +4,21 @@ const template = document.querySelector('#sound-row');
 
 try {
   const response = await fetch('/api/sounds');
-  const { sounds, folder, token, error } = await response.json();
+  const { sounds, folder, context, token, error } = await response.json();
   if (!response.ok) throw new Error(error);
-  document.querySelector('#folder').textContent = folder;
+  const { game, revision, task, set } = context;
+  document.title = game + ' · ' + (revision ?? 'Sound set ' + set) + ' · ChirpSmith';
+  document.querySelector('#game').textContent = game;
+  const details = {
+    revision: revision ? 'Game revision ' + revision : 'Game revision unavailable',
+    task: task && 'Source task · ' + task,
+    'board-detail': 'Sound set ' + set + (folder === game ? '' : ' · ' + folder),
+  };
+  for (const [id, value] of Object.entries(details)) {
+    const element = document.getElementById(id);
+    element.textContent = value ?? '';
+    element.hidden = !value;
+  }
   status.textContent = sounds.length + ' sounds. Choices save to this folder.';
   for (const sound of sounds) {
     const row = template.content.cloneNode(true);

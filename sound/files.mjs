@@ -55,6 +55,31 @@ function git(root, ...args) {
   }
 }
 
+export function auditionContext(root, labels = {}, { making = false } = {}) {
+  const lock = path.join(root, 'sounds.lock.json');
+  const saved = !making && existsSync(lock) ? json(lock).audition : null;
+  const gitRoot = git(root, 'rev-parse', '--show-toplevel');
+  let game;
+  for (let directory = root; ; directory = path.dirname(directory)) {
+    const config = path.join(directory, 'gt.json');
+    if (existsSync(config)) {
+      try {
+        const name = json(config).name;
+        if (typeof name === 'string') game = name.trim() || undefined;
+      } catch {
+        // Project configuration is optional for sound commands.
+      }
+      break;
+    }
+    if (path.dirname(directory) === directory) break;
+  }
+  return {
+    game: labels.game ?? saved?.game ?? game ?? (gitRoot ? path.basename(gitRoot) : undefined),
+    revision: labels.revision ?? saved?.revision ?? (making ? git(root, 'rev-parse', '--short=10', 'HEAD') ?? undefined : undefined),
+    task: labels.task ?? saved?.task,
+  };
+}
+
 export function evidence(root, command, args, engine, sources, start, seed = null) {
   const directory = path.join(root, '.gt', 'sfx', command);
   mkdirSync(directory, { recursive: true });

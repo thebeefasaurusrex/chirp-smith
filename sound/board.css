@@ -12,7 +12,10 @@ header {
   border-radius: 1rem;
   background: #2e2150;
 }
-.folder { color: #e0c5ff; font-size: .85rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.eyebrow { color: #e0c5ff; font-size: .85rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+header { overflow-wrap: anywhere; }
+.revision { font-weight: 700; }
+.board-detail { color: #e0c5ff; font-size: .9rem; }
 h1 { font-size: clamp(2.25rem, 7vw, 4.5rem); margin: .2rem 0; letter-spacing: -.05em; }
 h2 { font-size: 1.1rem; margin: 0 0 .5rem; text-transform: capitalize; overflow-wrap: anywhere; }
 header p:last-child { margin-bottom: 0; }
