@@ -133,12 +133,18 @@ export async function sfx(args) {
   if (command === 'make' || command === 'board') {
     const options = {
       game: { type: 'string' }, revision: { type: 'string' }, task: { type: 'string' },
-      ...(command === 'board' ? { open: { type: 'boolean' } } : {}),
+      ...(command === 'board' ? { open: { type: 'boolean' }, library: { type: 'string' }, select: { type: 'string' } } : {}),
     };
-    const { values: { open, ...labels }, positionals } = parseArgs({ args: rest, options, allowPositionals: true });
+    const { values: { open, library, select, ...labels }, positionals } = parseArgs({ args: rest, options, allowPositionals: true });
     for (const [key, value] of Object.entries(labels)) {
       labels[key] = value.trim();
       if (!labels[key]) throw new Error('--' + key + ' needs a nonempty value');
+    }
+    if (library !== undefined || select !== undefined) {
+      if (!library?.trim() || positionals.length || Object.keys(labels).length || select === '') {
+        throw new Error('Use board --library <file> [--select <id>] [--open]. Set labels in the library.');
+      }
+      return board(undefined, open, args, start, {}, library, select);
     }
     if (positionals.length === 1) {
       return command === 'make'
@@ -152,6 +158,7 @@ export async function sfx(args) {
     return lint(inputs, args, flags.includes('--full'), start);
   }
   console.log('Usage: chirp-smith make <sounds.json> | chirp-smith lint <folder|wav...> [--full] | chirp-smith board <folder> [--open]');
+  console.log('For multiple games: chirp-smith board --library <file> [--select <id>] [--open]');
   console.log('Make and board accept [--game "Game title"] [--revision "Build or revision"] [--task "Source chat or task"]');
   return args.length && !['--help', '-h'].includes(command) ? 2 : 0;
 }

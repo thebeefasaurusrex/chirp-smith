@@ -23,7 +23,24 @@ node bin/chirp-smith.mjs board examples
 
 Open the printed loopback URL in a browser. Mark each variant Keep or Redo, add a note, then press Ctrl+C in the terminal to stop the board. Choices are saved to `examples/choices.json`. On Windows, add `--open` to open the URL automatically.
 
-The workbench draws a waveform and 3D spectral terrain from the selected WAV. Play a take to see its position sweep across the terrain, or click, drag, or use the keyboard on the waveform to seek. The take rack keeps a running count of unreviewed, kept, and redo takes. Fonts and graphics are served locally. The terrain has a Canvas2D fallback when WebGL2 is unavailable, and the waveform works on its own when neither canvas renderer is available. Add `?fps` to the board URL to see the frame-rate readout.
+The workbench keeps the waveform, 3D spectral terrain, and game picker visible above the scrolling take rack. Wide cards have full-width notes with four visible lines. Play a take to see its position sweep across the terrain, or use Show on scope to inspect it silently. Click, drag, or use the keyboard on the waveform to seek. The take rack keeps a running count of unreviewed, kept, and redo takes. Fonts and graphics are served locally. The terrain has a Canvas2D fallback when WebGL2 is unavailable, and the waveform works on its own when neither canvas renderer is available. Add `?fps` to the board URL to see the frame-rate readout.
+
+### Open several games in one workbench
+
+Create `boards.json` with the sound folders you want to review. Paths resolve relative to that file. Give every board a unique ID and its own sound folder.
+
+```json
+[
+  { "id": "first-game", "folder": "first-game/sounds", "game": "First Game", "revision": "Build 12" },
+  { "id": "second-game", "folder": "second-game/sounds", "game": "Second Game", "revision": "Build 3" }
+]
+```
+
+```sh
+node bin/chirp-smith.mjs board --library boards.json
+```
+
+Use the Sound board picker to switch games in the same browser tab. Each sound folder keeps its own `choices.json`. Notes finish saving before switching, and a failed save keeps you on the current board. Add `--select second-game` to choose the first board on launch. Each entry can also include a `task` label.
 
 ### Label an audition
 

@@ -4,6 +4,20 @@ const status = document.querySelector('#status');
 const list = document.querySelector('#sounds');
 const template = document.querySelector('#sound-row');
 const scope = createScope();
+const scopePanel = document.querySelector('.scope');
+new ResizeObserver(() => {
+  document.documentElement.style.setProperty('--scope-clearance', scopePanel.offsetHeight + 24 + 'px');
+}).observe(scopePanel);
+
+if (window.visualViewport) {
+  const fitKeyboard = () => {
+    document.documentElement.toggleAttribute('data-keyboard-open',
+      document.activeElement instanceof HTMLTextAreaElement && innerHeight - window.visualViewport.height > 120);
+  };
+  window.visualViewport.addEventListener('resize', fitKeyboard);
+  document.addEventListener('focusin', fitKeyboard);
+  document.addEventListener('focusout', () => requestAnimationFrame(fitKeyboard));
+}
 let scopedBadge;
 const selectTake = (audio, title, badge) => {
   if (scopedBadge) scopedBadge.hidden = true;
@@ -25,9 +39,36 @@ if (new URLSearchParams(location.search).has('fps')) {
 }
 
 try {
-  const response = await fetch('/api/sounds');
-  const { sounds, folder, context, token, error } = await response.json();
+  const page = new URL(location.href);
+  const requested = page.searchParams.get('board');
+  const response = await fetch('/api/sounds' + (requested ? '?board=' + encodeURIComponent(requested) : ''));
+  const { sounds, folder, context, token, error, board, boards } = await response.json();
   if (!response.ok) throw new Error(error);
+  const choiceUrl = '/api/choice' + (boards.length > 1 ? '?board=' + encodeURIComponent(board) : '');
+  const flushNotes = [];
+  if (boards.length > 1) {
+    const select = document.querySelector('#board-select');
+    const repeated = new Set(boards.filter(({ game }, index) =>
+      boards.findIndex((other) => other.game === game) !== index).map(({ game }) => game));
+    for (const { id, game, revision } of boards) {
+      select.add(new Option(repeated.has(game) && revision ? game + ' · ' + revision : game, id));
+    }
+    select.value = board;
+    document.querySelector('#board-picker').hidden = false;
+    select.addEventListener('change', async () => {
+      const next = select.value;
+      select.disabled = true;
+      if ((await Promise.all(flushNotes.map((flush) => flush()))).every(Boolean)) {
+        page.searchParams.set('board', next);
+        location.assign(page.href);
+      } else {
+        select.value = board;
+        select.disabled = false;
+        status.textContent = 'A choice could not be saved. Edit the note or choice and try again.';
+        status.scrollIntoView({ block: 'center' });
+      }
+    });
+  }
   const { game, revision, task, set } = context;
   document.title = game + ' · ' + (revision ?? 'Sound set ' + set) + ' · ChirpSmith';
   document.querySelector('#game').textContent = game;
@@ -76,16 +117,20 @@ try {
       card.classList.add('is-playing');
       selectTake(audio, title.textContent, badge);
     });
+    row.querySelector('.show-scope').addEventListener('click', () => {
+      for (const other of list.querySelectorAll('audio')) if (other !== audio) other.pause();
+      selectTake(audio, title.textContent, badge);
+    });
     for (const event of ['pause', 'ended', 'error']) {
       audio.addEventListener(event, () => card.classList.remove('is-playing'));
     }
     audio.addEventListener('error', () => { status.textContent = 'Could not play ' + title.textContent + '. Reopen the board if the file changed.'; });
     const note = row.querySelector('textarea');
     note.value = sound.choice?.note ?? '';
-    const buttons = [...row.querySelectorAll('button')];
+    const buttons = [...row.querySelectorAll('[data-decision]')];
     let decision = sound.choice?.decision ?? null;
     if (decision) totals[decision]++;
-    let pending = Promise.resolve();
+    let pending = Promise.resolve(true);
     let noteEdited = false;
     const highlight = () => {
       for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.decision === decision));
@@ -96,13 +141,17 @@ try {
       noteEdited = false;
       const body = JSON.stringify({ id: sound.id, decision, note: note.value });
       pending = pending.then(async () => {
-        const response = await fetch('/api/choice', {
+        const response = await fetch(choiceUrl, {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Board-Token': token }, body,
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
         status.textContent = 'Saved ' + title.textContent + '.';
-      }).catch((error) => { status.textContent = error.message; });
+        return true;
+      }).catch((error) => {
+        status.textContent = error.message;
+        return false;
+      });
     };
     for (const button of buttons) {
       button.addEventListener('click', () => {
@@ -123,6 +172,11 @@ try {
     note.addEventListener('blur', () => {
       clearTimeout(timer);
       if (noteEdited) save();
+    });
+    flushNotes.push(() => {
+      clearTimeout(timer);
+      if (noteEdited) save();
+      return pending;
     });
     highlight();
     list.append(row);

@@ -18,7 +18,7 @@
       <span class="mast-label">Game audio workbench <small>FIELD INSTRUMENT / 01</small></span>
       <span class="local"><i></i> Local session</span>
     </header>
-    <div class="hero">
+    <div class="board-layout">
       <section class="identity" aria-labelledby="game">
         <p class="eyebrow"><span>01</span> / Game under test</p>
         <h1 id="game">Loading board…</h1>
@@ -29,6 +29,10 @@
         </div>
       </section>
       <figure class="scope" aria-label="Audio signal preview">
+        <label class="board-picker" id="board-picker" hidden>
+          Sound board
+          <select id="board-select"></select>
+        </label>
         <div class="scope-top"><span><i></i> Signal scope</span><span class="scope-mode"><span id="signal-state">READY</span> / WAV</span></div>
         <div class="signal-landscape" aria-label="Frequency energy across the selected WAV">
           <canvas class="terrain" aria-hidden="true"></canvas>
@@ -54,26 +58,26 @@
         <div class="scope-scale" id="scope-scale" aria-hidden="true"><span>0</span><span></span><span></span><span></span><span></span></div>
         <figcaption><strong id="scope-name">Awaiting a take</strong><span id="scope-time">-- s</span></figcaption>
       </figure>
-    </div>
-    <section class="rack" aria-labelledby="rack-title">
-      <div class="rack-head">
-        <div>
-          <p class="eyebrow"><span>02</span> / Audition queue</p>
-          <h2 id="rack-title">Take rack</h2>
-          <p>Find the sound that belongs in the game.</p>
-        </div>
-        <div class="review" id="review" hidden>
-          <div class="review-labels">
-            <span><b id="remaining">0</b> unreviewed</span>
-            <span><b id="kept">0</b> kept</span>
-            <span><b id="redos">0</b> redo</span>
+      <section class="rack" aria-labelledby="rack-title">
+        <div class="rack-head">
+          <div>
+            <p class="eyebrow"><span>02</span> / Audition queue</p>
+            <h2 id="rack-title">Take rack</h2>
+            <p>Find the sound that belongs in the game.</p>
           </div>
-          <div id="review-track" class="review-track" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="review" id="review" hidden>
+            <div class="review-labels">
+              <span><b id="remaining">0</b> unreviewed</span>
+              <span><b id="kept">0</b> kept</span>
+              <span><b id="redos">0</b> redo</span>
+            </div>
+            <div id="review-track" class="review-track" aria-hidden="true"><i></i><i></i><i></i></div>
+          </div>
         </div>
-      </div>
-      <p id="status" role="status">Loading sounds…</p>
-      <div id="sounds"></div>
-    </section>
+        <p id="status" role="status">Loading sounds…</p>
+        <div id="sounds"></div>
+      </section>
+    </div>
     <footer><span>CHIRPSMITH / AUDIO WORKBENCH</span><span>Choices stay in this sound folder.</span></footer>
   </main>
   <template id="sound-row">
@@ -89,9 +93,10 @@
         <div class="buttons">
           <button type="button" data-decision="keep" aria-pressed="false"><span aria-hidden="true">✓</span> Keep</button>
           <button type="button" data-decision="redo" aria-pressed="false"><span aria-hidden="true">↻</span> Redo</button>
+          <button type="button" class="show-scope">Show on scope</button>
         </div>
         <label>Take notes
-          <textarea rows="2" maxlength="2000" placeholder="What should change?"></textarea>
+          <textarea rows="4" maxlength="2000" placeholder="What should change?"></textarea>
         </label>
       </div>
     </article>

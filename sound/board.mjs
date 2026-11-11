@@ -41,8 +41,7 @@ function serveWav(response, request, bytes) {
   response.writeHead(200, { 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Length': total }).end(bytes);
 }
 
-export async function startBoard(root, files, labels) {
-  const token = randomUUID();
+function soundSet({ id, root, files, labels }) {
   const choicesFile = path.join(root, 'choices.json');
   const sounds = files.map((file) => ({
     file, id: path.relative(root, file).split(path.sep).join('/'), sha256: fileSha(file),
@@ -59,6 +58,18 @@ export async function startBoard(root, files, labels) {
     }
     return saved.choices;
   };
+  return { id, choicesFile, folder, context: { ...context, game: context.game ?? folder, set }, sounds, known, readChoices };
+}
+
+export function startBoard(root, files, labels) {
+  return startLibrary([{ id: 'default', root, files, labels }]);
+}
+
+export async function startLibrary(entries, initial = entries[0]?.id) {
+  const token = randomUUID();
+  const sets = new Map(entries.map((entry) => [entry.id, soundSet(entry)]));
+  if (!sets.has(initial) || sets.size !== entries.length) throw new Error('Invalid sound library selection');
+  const boards = [...sets.values()].map(({ id, context }) => ({ id, ...context }));
   const server = createServer(async (request, response) => {
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -66,20 +77,26 @@ export async function startBoard(root, files, labels) {
     try {
       const host = '127.0.0.1:' + server.address().port;
       if (request.headers.host !== host) return sendJson(response, 403, { error: 'Use the local board URL' });
-      const asset = assets.get(request.url.split('?')[0]);
+      const url = new URL(request.url, 'http://' + host);
+      const asset = assets.get(url.pathname);
       if (request.method === 'GET' && asset) {
         return response.writeHead(200, { 'Content-Type': asset.type }).end(asset.bytes);
       }
-      if (request.method === 'GET' && request.url === '/api/sounds') {
+      const board = url.searchParams.get('board') ?? initial;
+      const entry = sets.get(board);
+      if (!entry) return sendJson(response, 404, { error: 'Sound board not found' });
+      const { choicesFile, folder, context, sounds, known, readChoices } = entry;
+      if (request.method === 'GET' && url.pathname === '/api/sounds') {
         const choices = readChoices();
         return sendJson(response, 200, {
-          token, folder, context: { ...context, game: context.game ?? folder, set },
+          token, folder, context, board, boards,
           sounds: sounds.map(({ id, sha256 }, index) => ({
-            id, url: '/wav/' + index, choice: choices[id]?.sha256 === sha256 ? choices[id] : null,
+            id, url: '/wav/' + index + (sets.size > 1 ? '?board=' + encodeURIComponent(board) : ''),
+            choice: choices[id]?.sha256 === sha256 ? choices[id] : null,
           })),
         });
       }
-      const audioMatch = request.url.match(/^\/wav\/(\d+)$/);
+      const audioMatch = url.pathname.match(/^\/wav\/(\d+)$/);
       if (request.method === 'GET' && audioMatch) {
         const sound = sounds[Number(audioMatch[1])];
         if (!sound) return sendJson(response, 404, { error: 'Sound not found' });
@@ -87,7 +104,7 @@ export async function startBoard(root, files, labels) {
         if (sha(bytes) !== sound.sha256) return sendJson(response, 409, { error: 'Sound changed. Restart the board.' });
         return serveWav(response, request, bytes);
       }
-      if (request.method === 'POST' && request.url === '/api/choice') {
+      if (request.method === 'POST' && url.pathname === '/api/choice') {
         if (request.headers.origin !== 'http://' + host || request.headers['x-board-token'] !== token) {
           return sendJson(response, 403, { error: 'Open the local board to save choices' });
         }
@@ -122,23 +139,44 @@ export async function startBoard(root, files, labels) {
     server.once('error', reject);
     server.listen(0, '127.0.0.1', resolve);
   });
-  return { server, url: 'http://127.0.0.1:' + server.address().port, choicesFile };
+  return { server, url: 'http://127.0.0.1:' + server.address().port, choicesFile: sets.get(initial).choicesFile };
 }
 
-export async function board(input, open, args, start, labels) {
-  const root = path.resolve(input);
-  const files = findSounds(root, { verifyLock: true });
-  if (files === null) {
-    console.log('STALE Sound hashes changed. Run chirp-smith make again.');
-    console.log('Sounds: ' + root);
-    return 3;
+export async function board(input, open, args, start, labels, library, initial) {
+  let entries = [{ id: 'default', root: path.resolve(input ?? '.'), labels }];
+  if (library) {
+    const file = path.resolve(library);
+    const saved = json(file);
+    if (!Array.isArray(saved) || !saved.length) throw new Error('A sound library needs at least one board');
+    entries = saved.map(({ id, folder, game, revision, task }) => {
+      if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(id) || typeof folder !== 'string' || !folder.trim()) {
+        throw new Error('Each library board needs a lowercase id and a sound folder');
+      }
+      return { id, root: path.resolve(path.dirname(file), folder), labels: { game, revision, task } };
+    });
+    const ids = new Set(entries.map(({ id }) => id));
+    if (ids.size !== entries.length) throw new Error('Library board ids must be unique');
+    if (initial && !ids.has(initial)) throw new Error('Unknown sound board: ' + initial);
   }
-  if (!files.length) throw new Error('No WAVs found');
-  const stamp = evidence(root, 'board', args, { node: process.version, path: process.execPath }, files, start);
-  const { url, choicesFile } = await startBoard(root, files, labels);
+  for (const entry of entries) {
+    entry.files = findSounds(entry.root, { verifyLock: true });
+    if (entry.files === null) {
+      console.log('STALE Sound hashes changed. Run chirp-smith make again.');
+      console.log('Sounds: ' + entry.root);
+      return 3;
+    }
+    if (!entry.files.length) throw new Error('No WAVs found in ' + entry.root);
+  }
+  const stamps = entries.map(({ root, files }) =>
+    evidence(root, 'board', args, { node: process.version, path: process.execPath }, files, start));
+  const { url, choicesFile } = await startLibrary(entries, initial);
   console.log('ChirpSmith: ' + url);
-  console.log('Choices: ' + choicesFile);
-  console.log('Evidence: ' + stamp);
+  if (entries.length === 1) {
+    console.log('Choices: ' + choicesFile);
+    console.log('Evidence: ' + stamps[0]);
+  } else {
+    console.log(entries.length + ' sound boards. Choices and evidence stay with each sound folder.');
+  }
   if (open && process.platform === 'win32') {
     const browser = spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], { stdio: 'ignore', windowsHide: true });
     browser.on('error', () => console.error('Open the ChirpSmith URL in your browser.'));

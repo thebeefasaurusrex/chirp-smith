@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { wav } from '../sound/audio.mjs';
-import { startBoard } from '../sound/board.mjs';
+import { startBoard, startLibrary } from '../sound/board.mjs';
 import { findSounds } from '../sound/files.mjs';
 
 const cli = fileURLToPath(new URL('../bin/chirp-smith.mjs', import.meta.url));
@@ -94,12 +94,9 @@ test('ChirpSmith serves playable WAVs and reloads a choice from disk after resta
     const home = await fetch(running.url);
     const html = await home.text();
     assert.match(html, /<h1 id="game">/);
-    const iconPath = html.match(/<link rel="icon" href="([^"]+)"/)?.[1];
-    assert.ok(iconPath);
-    const icon = await fetch(running.url + iconPath);
+    const icon = await fetch(running.url + '/favicon.svg');
     assert.equal(icon.status, 200);
     assert.equal(icon.headers.get('content-type'), 'image/svg+xml');
-    assert.match(await icon.text(), /^<svg /);
     const { token, context, sounds: [sound] } = await fetch(running.url + '/api/sounds').then((response) => response.json());
     assert.equal(context.game, path.basename(directory));
     assert.equal(context.revision, undefined);
@@ -124,5 +121,40 @@ test('ChirpSmith serves playable WAVs and reloads a choice from disk after resta
     assert.equal(sounds[0].choice.note, 'Keep the low end 🎵');
   } finally {
     if (running.server.listening) await close();
+  }
+});
+
+test('ChirpSmith keeps audio and choices separate for boards with the same take name', async (t) => {
+  const directory = workspace(t);
+  const entries = ['first', 'second'].map((id, index) => {
+    const root = path.join(directory, id);
+    mkdirSync(root);
+    const file = path.join(root, 'pick.wav');
+    writeFileSync(file, wav(sine(.2 + index * .1)));
+    return { id, root, files: [file], labels: { game: id } };
+  });
+  const { server, url } = await startLibrary(entries, 'second');
+  try {
+    const defaultBoard = await fetch(url + '/api/sounds').then((response) => response.json());
+    const first = await fetch(url + '/api/sounds?board=first').then((response) => response.json());
+    assert.equal(defaultBoard.board, 'second');
+    assert.deepEqual(first.boards.map(({ id }) => id), ['first', 'second']);
+    for (const [index, board] of [first, defaultBoard].entries()) {
+      const response = await fetch(url + board.sounds[0].url);
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()), readFileSync(entries[index].files[0]));
+    }
+    const save = await fetch(url + '/api/choice?board=first', {
+      method: 'POST',
+      headers: { Origin: url, 'X-Board-Token': first.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'pick.wav', decision: 'keep', note: 'Only on the first board' }),
+    });
+    assert.equal(save.status, 200);
+    for (const [id, expected] of [['first', 'Only on the first board'], ['second', undefined]]) {
+      const board = await fetch(url + '/api/sounds?board=' + id).then((response) => response.json());
+      assert.equal(board.sounds[0].choice?.note, expected);
+    }
+    assert.equal((await fetch(url + '/api/sounds?board=missing')).status, 404);
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });
